@@ -146,7 +146,7 @@ def register():
 
     if not os.path.exists(new_dir_path_and_name):
         os.makedirs(new_dir_path_and_name)
-        logger_bp_users.info(f"Created: {new_dir_name}")
+        logger_bp_users.info(f"Created: {unique_dir_name}")
 
     # add dir to PhotoDirectories
     new_dir = PhotoDirectories(unique_dir_name=unique_dir_name, display_name=display_name,
