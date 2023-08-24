@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from pb_models import dict_sess, dict_engine, text, Users, PhotoDirectories, \
     UsersToDirectories
 import time
+from app_package.token_decorator import token_required
 
 sess_users = dict_sess['sess_users']
 
@@ -55,7 +56,8 @@ def are_we_running():
 
 
 @bp_main.route('/create_directory', methods=['GET'])
-def create_directory():
+@token_required
+def create_directory(current_user):
 
     try:
         request_json = request.json
@@ -84,7 +86,8 @@ def allowed_file(filename):
 
 
 @bp_main.route('/receive_image', methods=['POST'])
-def receive_image():
+@token_required
+def receive_image(current_user):
     logger_bp_main.info(f"- in receive_image endpoint")
 
     logger_bp_main.info("------------")
@@ -141,45 +144,68 @@ def receive_image():
         return jsonify(error=str(e)), 500
 
 
+@bp_main.route('/get_dir_image_count',methods=['POST'])
+@token_required
+def get_dir_image_count():
+    logger_bp_main.info(f"- in get_dir_image_count endpoint")
+
+    request_form = request.form
+
+    if 'directory_id' not in request.form:
+        return jsonify(error='No directory_id received'), 400
+
+    dir_id = request.form.get('directory_id')
+    directory = sess_users.get(PhotoDirectories, int(dir_id))
+
+    directory_path = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), directory.unique_dir_name)
+    # Get the list of file names in the directory
+    file_names = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
+
+
+    return jsonify({"list of files in direcotry": file_names}) 
+
+
+@bp_main.route("/send_image", methods=["POST"])
+@token_required
+def send_image(current_user):
+
+    logger_main.info(f"- in send_image endpoint")
+    request_form = request.form
+
+    if 'directory_id' not in request.form:
+        return jsonify(error='No directory_id received'), 400
+
+    dir_id = request.form.get('directory_id')
+    file_name = request.form.get('file_name')
+    directory = sess_users.get(PhotoDirectories, int(dir_id))
+
+    directory_path = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), directory.unique_dir_name)
 
 
 
 
-@bp_main.route('/receive_image_old', methods=['POST'])
-def receive_image_old():
-    logger_bp_main.info(f"- in receive_image endpoint")
-
-    try:
-        requestFiles = request.files
-        logger_bp_main.info(f"reqeustFiles: {requestFiles}")
-
-    except Exception as e:
-        logger_bp_main.info(e)
-        logger_bp_main.info(f"requestFiles not found")
-        return jsonify({"status": "Image Not found."})
-
-    
-    for file_name, post_image in requestFiles.items():
-
-        post_image_filename = post_image.filename
-        filename_no_extension, file_extension = os.path.splitext(post_image_filename)
-        # logger_bp_main.info(f"-- post_image_filename: {post_image_filename} --")
-        file_size = post_image.content_length
-        # file_size = get_file_size(post_image.stream)
-        logger_bp_main.info(f"-- file_size: {file_size} --")
-
-        new_dir_name = "interesting_photos_endpoint"
-
-        new_dir_path_and_name = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), new_dir_name)
-        post_image.save(os.path.join(new_dir_path_and_name, post_image_filename))
-
-    logger_bp_main.info(f"- finished receive_image endpoint")
-
-    return jsonify({"image_received_status":"Successfully send images and executed /receive_image endpoint "})
+    # try:
+    #     request_json = request.json
+    #     print("request_json:",request_json)
+    #     rincon = sess.query(Rincons).filter_by(id = request_json["rincon_id"]).first()
+    #     rincon_files_db_folder_name = f"{rincon.id}_{rincon.name_no_spaces}"
+    # except Exception as e:
+    #     logger_main.info(e)
+    #     return jsonify({"status": "httpBody data recieved not json not parse-able."})
 
 
-# def get_file_size(file_storage):
-#     file_storage.seek(0, os.SEEK_END)  # Seek to the end of the file
-#     size = file_storage.tell()         # Get the position, which is the size
-#     file_storage.seek(0)               # Reset the file stream to the beginning
-#     return size
+    # if len(file_name.split(",")) > 0:
+    #     file_list = file_name.split(",")
+    #     image_filename = file_list[0]
+    # else:
+    #     image_filename = file_name
+
+
+    # if os.environ.get('FLASK_CONFIG_TYPE')=='local':
+    #     print("*** sleeping for 5 seconds *")
+    #     time.sleep(5)
+
+    logger_main.info(f"- /rincon_post_file respose with filename sent: {image_filename}") 
+
+    return send_from_directory(directory_path, file_name)
+
