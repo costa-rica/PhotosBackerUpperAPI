@@ -6,7 +6,11 @@ from logging.handlers import RotatingFileHandler
 from datetime import datetime
 import json
 from werkzeug.utils import secure_filename
+from pb_models import dict_sess, dict_engine, text, Users, PhotoDirectories, \
+    UsersToDirectories
+import time
 
+sess_users = dict_sess['sess_users']
 
 bp_main = Blueprint('bp_main', __name__)
 
@@ -83,41 +87,57 @@ def allowed_file(filename):
 def receive_image():
     logger_bp_main.info(f"- in receive_image endpoint")
 
-    # Check if the post request has the file and json object
-    if 'file' not in request.files:
-        return jsonify(error='No file received'), 400
-    elif 'json' not in request.form:
-        return jsonify(error='No json received'), 400
+    logger_bp_main.info("------------")
+    request_form = request.form
+    logger_bp_main.info(f"request_form: {request_form}")
+    request_files = request.files
+    logger_bp_main.info(f"request_files:  {request_files}")
+    logger_bp_main.info("------------")
 
-    file = request.files['file']
+
+    # Check if the post request has the file and json object
+    if 'uiimage' not in request.files:
+        return jsonify(error='No file received'), 400
+    elif 'directory_id' not in request.form:
+        return jsonify(error='No directory_id received'), 400
+
+    file = request.files['uiimage']
 
     try:
 
-        request_form = request.form
-        logger_bp_main.info(f"request_form: {request_form}")
-        request_files = request.files
-        logger_bp_main.info(f"request_files:  {request_files}")
+        # request_form = request.form
+        # logger_bp_main.info(f"request_form: {request_form}")
+        # request_files = request.files
+        # logger_bp_main.info(f"request_files:  {request_files}")
 
-        data_json = json.loads(request_form.get('json'))
-        logger_bp_main.info(f"request_form.get:  {data_json.get('directory')}")
-        dir_sub_name = data_json['directory']
+        # data_json = json.loads(request_form.get('directory_id'))
+        # data_json = json.loads(request_form)
+        # dict_request_form = request.form
+        # logger_bp_main.info(f"request_form.get:  {data_json.get('directory_id')}")
+        dir_id = request.form.get('directory_id')
+        directory = sess_users.get(PhotoDirectories, int(dir_id))
         
         if file.filename == '':
             return jsonify(error='No selected file'), 400
         
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            save_dir = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), dir_sub_name)
+            save_dir = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), directory.unique_dir_name)
             
             # Create the subdirectory if it doesn't exist
             os.makedirs(save_dir, exist_ok=True)
 
             filepath = os.path.join(save_dir, filename)
             file.save(filepath)
+
+            # logger_bp_main.info(f"* Sleep for 5 seconds *")
+            # time.sleep(5)
+
             return jsonify(status='success', message=f'File saved to {filepath}')
         
         return jsonify(error='Invalid file type'), 400
     except Exception as e:
+        logger_bp_main.info(f"Error receiving request:  {e}")
         return jsonify(error=str(e)), 500
 
 
