@@ -1,5 +1,5 @@
 from flask import Blueprint
-from flask import render_template, jsonify, request,current_app
+from flask import render_template, jsonify, request,current_app, send_from_directory
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -144,68 +144,45 @@ def receive_image(current_user):
         return jsonify(error=str(e)), 500
 
 
-@bp_main.route('/get_dir_image_count',methods=['POST'])
+@bp_main.route('/get_dir_image_list',methods=['POST'])
 @token_required
-def get_dir_image_count():
+def get_dir_image_list(current_user):
     logger_bp_main.info(f"- in get_dir_image_count endpoint")
 
-    request_form = request.form
+    request_json = request.json
+    logger_bp_main.info(f"- request_json: {request_json}")
 
-    if 'directory_id' not in request.form:
+    if 'directory_id' not in request_json:
         return jsonify(error='No directory_id received'), 400
 
-    dir_id = request.form.get('directory_id')
+    dir_id = request_json.get('directory_id')
     directory = sess_users.get(PhotoDirectories, int(dir_id))
 
     directory_path = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), directory.unique_dir_name)
     # Get the list of file names in the directory
     file_names = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
 
-
-    return jsonify({"list of files in direcotry": file_names}) 
+    return jsonify(file_names) 
 
 
 @bp_main.route("/send_image", methods=["POST"])
 @token_required
 def send_image(current_user):
 
-    logger_main.info(f"- in send_image endpoint")
-    request_form = request.form
+    logger_bp_main.info(f"- in send_image endpoint")
+    request_json = request.json
 
-    if 'directory_id' not in request.form:
+    if 'directory_id' not in request_json:
+        logger_bp_main.info(f"- Error: No directory_id received")
         return jsonify(error='No directory_id received'), 400
 
-    dir_id = request.form.get('directory_id')
-    file_name = request.form.get('file_name')
+    dir_id = request_json.get('directory_id')
+    file_name = request_json.get('file_name')
     directory = sess_users.get(PhotoDirectories, int(dir_id))
 
     directory_path = os.path.join(current_app.config.get('DIR_DB_PHOTOS_MAIN'), directory.unique_dir_name)
 
-
-
-
-    # try:
-    #     request_json = request.json
-    #     print("request_json:",request_json)
-    #     rincon = sess.query(Rincons).filter_by(id = request_json["rincon_id"]).first()
-    #     rincon_files_db_folder_name = f"{rincon.id}_{rincon.name_no_spaces}"
-    # except Exception as e:
-    #     logger_main.info(e)
-    #     return jsonify({"status": "httpBody data recieved not json not parse-able."})
-
-
-    # if len(file_name.split(",")) > 0:
-    #     file_list = file_name.split(",")
-    #     image_filename = file_list[0]
-    # else:
-    #     image_filename = file_name
-
-
-    # if os.environ.get('FLASK_CONFIG_TYPE')=='local':
-    #     print("*** sleeping for 5 seconds *")
-    #     time.sleep(5)
-
-    logger_main.info(f"- /rincon_post_file respose with filename sent: {image_filename}") 
+    logger_bp_main.info(f"- /send_image respose with filename sent: {file_name}") 
 
     return send_from_directory(directory_path, file_name)
 
