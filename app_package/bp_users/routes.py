@@ -12,7 +12,7 @@ import json
 from pb_models import dict_sess, dict_engine, text, Users, PhotoDirectories, UsersToDirectories
 
 from app_package.bp_users.utils import send_reset_email, send_confirm_email, \
-    create_token, create_dict_user_ios
+    create_token, create_dict_user_ios, check_user_directories
 from app_package.bp_main.utils import create_dict_directory_ios
 import datetime
 import requests
@@ -40,27 +40,8 @@ logger_bp_users.addHandler(stream_handler)
 
 salt = bcrypt.gensalt()
 
-
 bp_users = Blueprint('bp_users', __name__)
 sess_users = dict_sess['sess_users']
-
-# @bp_users.before_request
-# def before_request():
-#     logger_bp_users.info("- in bp_users.before_request ")
-#     ###### Keeps user logged in 31 days ########
-#     session.permanent = True
-#     current_app.permanent_session_lifetime = datetime.timedelta(days=31)
-#     session.modified = True
-#     logger_bp_users.info(f"!--> current_app.permanent_session_lifetime: {current_app.permanent_session_lifetime}")
-#     ###### END Keeps user logged in 31 days ######## 
-#     ###### TEMPORARILY_DOWN: redirects to under construction page ########
-#     if os.environ.get('TEMPORARILY_DOWN') == '1':
-#         if request.url != request.url_root + url_for('bp_main.temporarily_down')[1:]:
-#             # logger_bp_users.info("*** (logger_bp_users) Redirected ")
-#             logger_bp_users.info(f'- request.referrer: {request.referrer}')
-#             logger_bp_users.info(f'- request.url: {request.url}')
-#             return redirect(url_for('bp_main.temporarily_down'))
-
 
 
 @bp_users.route('/login', methods = ['GET', 'POST'])
@@ -89,11 +70,12 @@ def login():
         user_directories = [[str(i.directory.id), i.directory.display_name, i.directory.display_name_no_spaces] for i in user.directories]
         # user_rincons = create_dict_rincon_ios(user_id, rincon_id)
         
+        check_user_directories(user)
+
         user_dirs_ios = []
         for dir_info in user_directories:
             user_dirs_ios.append(create_dict_directory_ios(user.id, dir_info[0]))
-            # logger_bp_users.info(f"--- user_rincons_w_permisssions: {user_rincons}")
-        # return jsonify({'token': token,'user_id':str(user.id), 'user_dirs': user_dirs_ios})
+
         dict_user_ios = create_dict_user_ios(user.id)
         # dict_user_ios={}
         dict_user_ios['token'] = token
@@ -135,7 +117,6 @@ def register():
     except:
         return jsonify({"status": f"failed to add to database."})
 
-    
     logger_bp_users.info(f"- new_user.id: {new_user.id} for email: {new_user.email} -")
 
     # create new user dir
@@ -144,22 +125,23 @@ def register():
     display_name = new_user.username+"'s photos"
     display_name_no_spaces = display_name.replace(" ", "_")
 
-    if not os.path.exists(new_dir_path_and_name):
-        os.makedirs(new_dir_path_and_name)
-        logger_bp_users.info(f"Created: {unique_dir_name}")
-
     # add dir to PhotoDirectories
     new_dir = PhotoDirectories(unique_dir_name=unique_dir_name, display_name=display_name,
             display_name_no_spaces=display_name_no_spaces)
     sess_users.add(new_dir)
     sess_users.commit()
-    logger_bp_users.info(f"- new_user dir: {new_dir.unique_dir_name}, display_name: {new_dir.unique_dir_name} ---")
+
+    
     # ad dir to Ust To Dir
     new_user_to_dir = UsersToDirectories(user_id=new_user.id,directory_id=new_dir.id,
         permission_delete=True, permission_add_to_dir=True, permission_admin=True)
     sess_users.add(new_user_to_dir)
     sess_users.commit()
     logger_bp_users.info(f"- new_user is member of : {new_dir.display_name} ---")
+
+    logger_bp_users.info(f"- new_user dir: {new_dir.unique_dir_name}, display_name: {new_dir.unique_dir_name} ---")
+
+    check_user_directories(new_user)
 
     new_user_dict_response = {}
     new_user_dict_response["id"]=str(new_user.id)

@@ -90,13 +90,10 @@ def allowed_file(filename):
 def receive_image(current_user):
     logger_bp_main.info(f"- in receive_image endpoint")
 
-    logger_bp_main.info("------------")
     request_form = request.form
     logger_bp_main.info(f"request_form: {request_form}")
     request_files = request.files
     logger_bp_main.info(f"request_files:  {request_files}")
-    logger_bp_main.info("------------")
-
 
     # Check if the post request has the file and json object
     if 'uiimage' not in request.files:
@@ -107,16 +104,6 @@ def receive_image(current_user):
     file = request.files['uiimage']
 
     try:
-
-        # request_form = request.form
-        # logger_bp_main.info(f"request_form: {request_form}")
-        # request_files = request.files
-        # logger_bp_main.info(f"request_files:  {request_files}")
-
-        # data_json = json.loads(request_form.get('directory_id'))
-        # data_json = json.loads(request_form)
-        # dict_request_form = request.form
-        # logger_bp_main.info(f"request_form.get:  {data_json.get('directory_id')}")
         dir_id = request.form.get('directory_id')
         directory = sess_users.get(PhotoDirectories, int(dir_id))
         

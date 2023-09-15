@@ -106,4 +106,15 @@ def create_dict_user_ios(user_id):
 
     return dict_user_ios
 
+def check_user_directories(user):
+    # print("- in check_user_directories(user)")
+    dirs_in_db_dir = current_app.config.get('DIR_DB_PHOTOS_MAIN')
+
+    for dir in user.directories:
+        # print(f"Dir: {dir.directory.unique_dir_name}")
+        users_dir_path_and_name = os.path.join(dirs_in_db_dir,dir.directory.unique_dir_name)
+        # print(f"Directory to make: {users_dir_path_and_name}")
+        if not os.path.exists(users_dir_path_and_name):
+            os.makedirs(users_dir_path_and_name)
+            logger_bp_users.info(f"Created: {users_dir_path_and_name}")
 
